@@ -1,0 +1,12 @@
+# Testing
+pytest>=7.0
+
+# Dashboard
+streamlit>=1.28
+plotly>=5.0
+
+# Optional: Redis backend (for multi-instance deployments)
+# redis>=5.0
+
+# Optional: Webhook notifications in escalation.py
+# requests>=2.31

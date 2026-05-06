@@ -88,8 +88,8 @@ The process concludes with a **369 Signature** that confirms the geometric integ
 ## 🚀 Quick Start
 
 ```bash
-# Install
-pip install pytest
+# Install dependencies
+pip install -r requirements.txt
 
 # Run all tests
 python -m pytest tests/ -v
@@ -97,12 +97,8 @@ python -m pytest tests/ -v
 # Run stress tests
 python -m pytest tests/test_stress_redis.py -v -s
 
-# Launch dashboard (requires: pip install streamlit plotly)
+# Launch dashboard
 streamlit run dashboard/app.py
-
-# Push to GitHub
-export GITHUB_TOKEN="ghp_your_token"
-python scripts/push_to_github.py
 ```
 
 ---
