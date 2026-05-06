@@ -113,6 +113,10 @@ class _ImmutableResult:
 
 class G7Result(_ImmutableResult):
     __slots__ = ("_compliant","_scores","_decision","_violations")
+    _compliant: bool
+    _scores: tuple
+    _decision: str
+    _violations: tuple
     def __init__(self, compliant, scores, decision, violations):
         object.__setattr__(self,"_compliant", bool(compliant))
         object.__setattr__(self,"_scores",    tuple(scores))
@@ -133,6 +137,10 @@ class G7Result(_ImmutableResult):
 
 class G8Result(_ImmutableResult):
     __slots__ = ("_compliant","_scores","_decision","_violations")
+    _compliant: bool
+    _scores: tuple
+    _decision: str
+    _violations: tuple
     def __init__(self, compliant, scores, decision, violations):
         object.__setattr__(self,"_compliant", bool(compliant))
         object.__setattr__(self,"_scores",    tuple(scores))
@@ -296,6 +304,7 @@ class G7PrivacyEvaluator:
     v5.6: Progi jako __slots__ properties — niemutowalne po init.
     """
     __slots__ = ("__cfg",)
+    __cfg: MappingProxyType  # type: ignore[assignment]  # mangled to _G7PrivacyEvaluator__cfg
 
     def __init__(
         self,
@@ -393,6 +402,7 @@ class G8NonmaleficenceEvaluator:
     v5.6: deterministyczny sort, claimed_priority=None, walidacja konfiguracji.
     """
     __slots__ = ("__cfg",)
+    __cfg: MappingProxyType  # type: ignore[assignment]  # mangled to _G8NonmaleficenceEvaluator__cfg
 
     def __init__(
         self,
@@ -487,7 +497,7 @@ class G8NonmaleficenceEvaluator:
     def _priority_abuse(self, action, agents) -> bool:
         if not isinstance(action, dict): return False
         req_id  = action.get("requesting_agent")
-        agent   = next((a for a in agents if a.get("agent_id") == req_id), {})
+        agent: dict = next((a for a in agents if a.get("agent_id") == req_id), {})
         base    = agent.get("base_priority", 5)
         claimed = action.get("claimed_priority", base)
         # [G8-5.3] claimed_priority=None → traktuj jak base (brak abuse)
@@ -556,6 +566,10 @@ class SecurityHardeningEngine:
     wszystkie None inputs obsługiwane, monkeypatch zablokowany przez __slots__.
     """
     __slots__ = ("__g5","__g7","__g8","__cvc")
+    __g5: "G5TransparencyGuard"  # type: ignore[assignment]
+    __g7: "G7PrivacyEvaluator"  # type: ignore[assignment]
+    __g8: "G8NonmaleficenceEvaluator"  # type: ignore[assignment]
+    __cvc: "_CumulativeViolationCounter"  # type: ignore[assignment]
 
     def __init__(self, g5=None, g7=None, g8=None) -> None:
         object.__setattr__(self,"_SecurityHardeningEngine__g5", g5 or G5TransparencyGuard())

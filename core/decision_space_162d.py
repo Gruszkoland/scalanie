@@ -65,12 +65,13 @@ GUARDIAN_LABELS: Tuple[str, ...] = tuple(
 )
 
 # Guardian thresholds — from JSON mapping (single source of truth)
+GUARDIAN_THRESHOLDS: MappingProxyType
 if _guardian_map:
-    GUARDIAN_THRESHOLDS: MappingProxyType = MappingProxyType({
+    GUARDIAN_THRESHOLDS = MappingProxyType({
         g["label"]: g["threshold"] for g in _guardian_map
     })
 else:
-    GUARDIAN_THRESHOLDS: MappingProxyType = MappingProxyType({
+    GUARDIAN_THRESHOLDS = MappingProxyType({
         "G1_Unity": 0.87, "G2_Harmony": 0.87, "G3_Rhythm": 0.87,
         "G4_Causality": 0.87, "G5_Transparency": 0.87, "G6_Authenticity": 0.87,
         "G7_Privacy": 0.87, "G8_Nonmaleficence": 0.95, "G9_Sustainability": 0.87,
@@ -152,6 +153,9 @@ class PADVector:
         D (Dominance): negative = submissive, positive = in control
     """
     __slots__ = ("_p", "_a", "_d")
+    _p: float
+    _a: float
+    _d: float
 
     def __init__(self, pleasure: float, arousal: float, dominance: float) -> None:
         for name, val in (("pleasure", pleasure), ("arousal", arousal), ("dominance", dominance)):
@@ -190,6 +194,7 @@ class DecisionVector:
     Each component d_k is in [-1.0, +1.0].
     """
     __slots__ = ("_data",)
+    _data: Tuple[float, ...]
 
     def __init__(self, data: Optional[List[float]] = None) -> None:
         if data is None:
@@ -334,6 +339,10 @@ def compute_all_guardian_scores(d: DecisionVector) -> Dict[str, float]:
 class ValidationResult:
     """Result of Guardian validation on a decision vector."""
     __slots__ = ("_accepted", "_scores", "_violations", "_decision")
+    _accepted: bool
+    _scores: MappingProxyType
+    _violations: tuple
+    _decision: str
 
     def __init__(self, accepted: bool, scores: dict, violations: list, decision: str):
         object.__setattr__(self, "_accepted", accepted)

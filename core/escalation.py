@@ -56,6 +56,14 @@ class EscalationEvent:
         "_timestamp", "_decision", "_trinity_score", "_guardian_scores",
         "_violations", "_reason", "_severity", "_event_hash",
     )
+    _timestamp: float
+    _decision: str
+    _trinity_score: float
+    _guardian_scores: dict
+    _violations: tuple
+    _reason: str
+    _severity: str
+    _event_hash: str
 
     def __init__(
         self,
@@ -324,8 +332,8 @@ class EscalationManager:
     def summary(self) -> dict:
         """Escalation summary for monitoring."""
         with self._lock:
-            by_decision = {}
-            by_severity = {}
+            by_decision: Dict[str, int] = {}
+            by_severity: Dict[str, int] = {}
             for e in self._history:
                 by_decision[e.decision] = by_decision.get(e.decision, 0) + 1
                 by_severity[e.severity] = by_severity.get(e.severity, 0) + 1

@@ -59,6 +59,18 @@ class AuditRecord:
         "_version", "_input_hash", "_trinity_score", "_decision",
         "_guardian_violations", "_guardian_scores", "_pad_state", "_severity",
     )
+    _seq: int
+    _timestamp: float
+    _prev_hash: str
+    _record_hash: str
+    _version: str
+    _input_hash: str
+    _trinity_score: float
+    _decision: str
+    _guardian_violations: tuple
+    _guardian_scores: MappingProxyType
+    _pad_state: tuple
+    _severity: str
 
     def __init__(
         self,
@@ -299,7 +311,7 @@ class AuditChain:
     def summary(self) -> dict:
         """Chain summary for monitoring."""
         with self._lock:
-            decisions = {}
+            decisions: Dict[str, int] = {}
             violations_total = 0
             for r in self._chain:
                 decisions[r.decision] = decisions.get(r.decision, 0) + 1

@@ -63,6 +63,13 @@ class GenesisEntry:
         "_timestamp", "_decision_vector_hash", "_pad_state",
         "_guardian_scores", "_decision", "_reasoning", "_violations",
     )
+    _timestamp: float
+    _decision_vector_hash: str
+    _pad_state: tuple
+    _guardian_scores: MappingProxyType
+    _decision: str
+    _reasoning: str
+    _violations: tuple
 
     def __init__(
         self,

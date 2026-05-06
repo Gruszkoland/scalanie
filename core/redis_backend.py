@@ -122,6 +122,8 @@ class RedisSessionStore:
 
     PREFIX = "adrion369:g5:sess:"
 
+    _fallback: Optional["InMemorySessionStore"]
+
     def __init__(self, redis_url: str = "", redis_client=None) -> None:
         self._redis = None
         if redis_client is not None:
@@ -144,7 +146,8 @@ class RedisSessionStore:
         return self._redis is not None
 
     def get_session(self, sid: str) -> Optional[dict]:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             return self._fallback.get_session(sid)
         raw = self._redis.get(self.PREFIX + sid)
         if raw is None:
@@ -152,31 +155,36 @@ class RedisSessionStore:
         return json.loads(raw)
 
     def set_session(self, sid: str, data: dict) -> None:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             self._fallback.set_session(sid, data)
             return
         self._redis.set(self.PREFIX + sid, json.dumps(data))
 
     def set_session_with_ttl(self, sid: str, data: dict, ttl_seconds: int) -> None:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             self._fallback.set_session(sid, data)
             return
         self._redis.setex(self.PREFIX + sid, ttl_seconds, json.dumps(data))
 
     def delete_session(self, sid: str) -> None:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             self._fallback.delete_session(sid)
             return
         self._redis.delete(self.PREFIX + sid)
 
     def session_count(self) -> int:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             return self._fallback.session_count()
         keys = self._redis.keys(self.PREFIX + "*")
         return len(keys)
 
     def evict_expired(self, ttl: float) -> int:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             return self._fallback.evict_expired(ttl)
         # Redis handles TTL natively via EXPIRE/SETEX — no manual eviction needed
         return 0
@@ -193,6 +201,8 @@ class RedisCVCStore:
     """
 
     PREFIX = "adrion369:cvc:"
+
+    _fallback: Optional["InMemoryCVCStore"]
 
     def __init__(self, redis_url: str = "", redis_client=None) -> None:
         self._redis = None
@@ -216,7 +226,8 @@ class RedisCVCStore:
         return self._redis is not None
 
     def record_violations(self, session_id: str, count: int, window_hours: int) -> int:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             return self._fallback.record_violations(session_id, count, window_hours)
 
         now = time.time()
@@ -236,7 +247,8 @@ class RedisCVCStore:
         return results[-2]  # zcard result
 
     def get_violation_count(self, session_id: str, window_hours: int) -> int:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             return self._fallback.get_violation_count(session_id, window_hours)
 
         now = time.time()
@@ -247,7 +259,8 @@ class RedisCVCStore:
         return self._redis.zcard(key)
 
     def reset(self, session_id: str) -> None:
-        if self._fallback:
+        if self._redis is None:
+            assert self._fallback is not None
             self._fallback.reset(session_id)
             return
         self._redis.delete(self.PREFIX + session_id)
