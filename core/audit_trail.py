@@ -137,7 +137,7 @@ class AuditRecord:
     @property
     def timestamp_iso(self) -> str:
         import datetime
-        return datetime.datetime.utcfromtimestamp(self._timestamp).isoformat() + "Z"
+        return datetime.datetime.fromtimestamp(self._timestamp, datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 
     def __setattr__(self, n, v):
         raise AttributeError("AuditRecord is immutable")

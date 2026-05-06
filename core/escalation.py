@@ -102,7 +102,7 @@ class EscalationEvent:
     def to_dict(self) -> dict:
         import datetime
         return {
-            "timestamp": datetime.datetime.utcfromtimestamp(self._timestamp).isoformat() + "Z",
+            "timestamp": datetime.datetime.fromtimestamp(self._timestamp, datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
             "decision": self._decision,
             "trinity_score": round(self._trinity_score, 4),
             "guardian_scores": {k: round(v, 4) for k, v in self._guardian_scores.items()},

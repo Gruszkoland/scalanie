@@ -1,50 +1,59 @@
 {
-  "version": "1.1",
+  "version": "2.0",
   "laws": [
     {
       "id": "G1",
       "name": "Unity",
-      "description": "All actions must serve system coherence"
+      "description": "All actions must serve system coherence",
+      "severity": "MEDIUM"
     },
     {
       "id": "G2",
       "name": "Harmony",
-      "description": "Balance between competing objectives"
+      "description": "Balance between competing objectives",
+      "severity": "HIGH"
     },
     {
       "id": "G3",
       "name": "Rhythm",
-      "description": "Maintain consistent cadence and timing of operations"
+      "description": "Maintain consistent cadence and timing of operations",
+      "severity": "MEDIUM"
     },
     {
       "id": "G4",
       "name": "Causality",
-      "description": "Every action must have a traceable, justified cause"
+      "description": "Every action must have a traceable, justified cause",
+      "severity": "HIGH"
     },
     {
       "id": "G5",
       "name": "Transparency",
-      "description": "All decisions and reasoning must be visible and auditable"
+      "description": "All decisions and reasoning must be visible and auditable",
+      "severity": "MEDIUM"
     },
     {
       "id": "G6",
       "name": "Authenticity",
-      "description": "Outputs must be genuine and free from deception"
+      "description": "Outputs must be genuine and free from deception",
+      "severity": "HIGH"
     },
     {
       "id": "G7",
       "name": "Privacy",
-      "description": "All data and analysis remains local; no external disclosure without consent"
+      "description": "All data and analysis remains local; no external disclosure without consent",
+      "severity": "CRITICAL"
     },
     {
       "id": "G8",
       "name": "Nonmaleficence",
-      "description": "Never cause harm to users, systems, or data"
+      "description": "Never cause harm to users, systems, or data",
+      "severity": "CRITICAL"
     },
     {
       "id": "G9",
       "name": "Sustainability",
-      "description": "Operate within resource limits and preserve long-term system health"
+      "description": "Operate within resource limits and preserve long-term system health",
+      "severity": "HIGH"
     }
   ],
   "mapping": {
@@ -57,95 +66,215 @@
       "index_formula": "k = i * 54 + j * 9 + m  (i: Trinity 0-2, j: Hexagon 0-5, m: Guardian 0-8)"
     },
     "trinity": [
-      { "index": 0, "id": "Material",     "role": "LOGOS",  "weight": 0.33 },
-      { "index": 1, "id": "Intellectual",  "role": "ETHOS",  "weight": 0.34 },
-      { "index": 2, "id": "Essential",     "role": "EROS",   "weight": 0.33 }
+      {
+        "index": 0,
+        "id": "Material",
+        "role": "LOGOS",
+        "weight": 0.33
+      },
+      {
+        "index": 1,
+        "id": "Intellectual",
+        "role": "ETHOS",
+        "weight": 0.34
+      },
+      {
+        "index": 2,
+        "id": "Essential",
+        "role": "EROS",
+        "weight": 0.33
+      }
     ],
     "hexagon": [
-      { "index": 0, "id": "Inventory", "phase": "input"    },
-      { "index": 1, "id": "Empathy",   "phase": "input"    },
-      { "index": 2, "id": "Process",   "phase": "compute"  },
-      { "index": 3, "id": "Debate",    "phase": "compute"  },
-      { "index": 4, "id": "Healing",   "phase": "feedback" },
-      { "index": 5, "id": "Action",    "phase": "output"   }
+      {
+        "index": 0,
+        "id": "Inventory",
+        "phase": "input"
+      },
+      {
+        "index": 1,
+        "id": "Empathy",
+        "phase": "input"
+      },
+      {
+        "index": 2,
+        "id": "Process",
+        "phase": "compute"
+      },
+      {
+        "index": 3,
+        "id": "Debate",
+        "phase": "compute"
+      },
+      {
+        "index": 4,
+        "id": "Healing",
+        "phase": "feedback"
+      },
+      {
+        "index": 5,
+        "id": "Action",
+        "phase": "output"
+      }
     ],
     "guardians": [
       {
-        "index": 0,  "id": "G1", "label": "G1_Unity",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 0, "stride": 9, "count": 18 },
+        "index": 0,
+        "id": "G1",
+        "label": "G1_Unity",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 0,
+          "stride": 9,
+          "count": 18
+        },
         "ebdi_alpha": 0.15,
-        "projection": "g1(d) = 1 - (1/3) std({d_M, d_I, d_E}) * (1 - 0.2*P)"
+        "projection": "g1(d) = 1 - (1/3) std({d_M, d_I, d_E}) * (1 - 0.2*P)",
+        "severity": "MEDIUM"
       },
       {
-        "index": 1,  "id": "G2", "label": "G2_Harmony",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 1, "stride": 9, "count": 18 },
+        "index": 1,
+        "id": "G2",
+        "label": "G2_Harmony",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 1,
+          "stride": 9,
+          "count": 18
+        },
         "ebdi_alpha": 0.15,
-        "projection": "g2(d) = 1 - max|d_Hj - d_Hk| * (1 + 0.15*A)"
+        "projection": "g2(d) = 1 - max|d_Hj - d_Hk| * (1 + 0.15*A)",
+        "severity": "HIGH"
       },
       {
-        "index": 2,  "id": "G3", "label": "G3_Rhythm",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 2, "stride": 9, "count": 18 },
-        "ebdi_alpha": 0.10,
-        "projection": "g3(d) = exp(-delta/0.35) * cos(2pi * (t mod 9)/9)"
+        "index": 2,
+        "id": "G3",
+        "label": "G3_Rhythm",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 2,
+          "stride": 9,
+          "count": 18
+        },
+        "ebdi_alpha": 0.1,
+        "projection": "g3(d) = exp(-delta/0.35) * cos(2pi * (t mod 9)/9)",
+        "severity": "MEDIUM"
       },
       {
-        "index": 3,  "id": "G4", "label": "G4_Causality",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 3, "stride": 9, "count": 18 },
-        "ebdi_alpha": 0.10,
-        "projection": "g4(d) = (1/18) sum d_k * I(hash_{t-1} consistent)"
+        "index": 3,
+        "id": "G4",
+        "label": "G4_Causality",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 3,
+          "stride": 9,
+          "count": 18
+        },
+        "ebdi_alpha": 0.1,
+        "projection": "g4(d) = (1/18) sum d_k * I(hash_{t-1} consistent)",
+        "severity": "HIGH"
       },
       {
-        "index": 4,  "id": "G5", "label": "G5_Transparency",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 4, "stride": 9, "count": 18 },
+        "index": 4,
+        "id": "G5",
+        "label": "G5_Transparency",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 4,
+          "stride": 9,
+          "count": 18
+        },
         "ebdi_alpha": 0.25,
-        "projection": "g5(d) = (1/3)(score_C + score_B + score_K) * (1 + 0.25*D)"
+        "projection": "g5(d) = (1/3)(score_C + score_B + score_K) * (1 + 0.25*D)",
+        "severity": "MEDIUM"
       },
       {
-        "index": 5,  "id": "G6", "label": "G6_Authenticity",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 5, "stride": 9, "count": 18 },
-        "ebdi_alpha": 0.30,
-        "projection": "g6(d) = 1 - ||d_input - d_projected||_2 * (1 + 0.3*A)"
+        "index": 5,
+        "id": "G6",
+        "label": "G6_Authenticity",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 5,
+          "stride": 9,
+          "count": 18
+        },
+        "ebdi_alpha": 0.3,
+        "projection": "g6(d) = 1 - ||d_input - d_projected||_2 * (1 + 0.3*A)",
+        "severity": "HIGH"
       },
       {
-        "index": 6,  "id": "G7", "label": "G7_Privacy",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 6, "stride": 9, "count": 18 },
-        "ebdi_alpha": 0.10,
-        "projection": "g7(d) = (1/18) sum d_k * I(no-external-call AND data-local)"
+        "index": 6,
+        "id": "G7",
+        "label": "G7_Privacy",
+        "threshold": 0.95,
+        "priority": "hard_veto",
+        "dimensions": {
+          "start": 6,
+          "stride": 9,
+          "count": 18
+        },
+        "ebdi_alpha": 0.1,
+        "projection": "g7(d) = (1/18) sum d_k * I(no-external-call AND data-local)",
+        "severity": "CRITICAL"
       },
       {
-        "index": 7,  "id": "G8", "label": "G8_Nonmaleficence",
-        "threshold": 0.95, "priority": "hard_veto",
-        "dimensions": { "start": 7, "stride": 9, "count": 18 },
+        "index": 7,
+        "id": "G8",
+        "label": "G8_Nonmaleficence",
+        "threshold": 0.95,
+        "priority": "hard_veto",
+        "dimensions": {
+          "start": 7,
+          "stride": 9,
+          "count": 18
+        },
         "ebdi_alpha": 0.25,
-        "projection": "g8(d) = min(1, 1.2 * (1/18) sum d_k - 0.25*A)"
+        "projection": "g8(d) = min(1, 1.2 * (1/18) sum d_k - 0.25*A)",
+        "severity": "CRITICAL"
       },
       {
-        "index": 8,  "id": "G9", "label": "G9_Sustainability",
-        "threshold": 0.87, "priority": "standard",
-        "dimensions": { "start": 8, "stride": 9, "count": 18 },
-        "ebdi_alpha": 0.10,
-        "projection": "g9(d) = (1/18) sum d_k * exp(-resource_delta/1000)"
+        "index": 8,
+        "id": "G9",
+        "label": "G9_Sustainability",
+        "threshold": 0.87,
+        "priority": "standard",
+        "dimensions": {
+          "start": 8,
+          "stride": 9,
+          "count": 18
+        },
+        "ebdi_alpha": 0.1,
+        "projection": "g9(d) = (1/18) sum d_k * exp(-resource_delta/1000)",
+        "severity": "HIGH"
       }
     ],
     "validation": {
       "accept_condition": "forall m in 1..9: g_m(d) >= threshold_m",
-      "hard_veto": "G8 (threshold=0.95, immediate DENY on violation)",
+      "hard_veto": "G7 Privacy AND G8 Nonmaleficence — both CRITICAL, threshold>=0.95, any single violation triggers immediate DENY",
       "veto_count_threshold": 2,
       "dissonance_threshold": 0.35,
       "crisis_arousal_threshold": 0.7,
       "crisis_compression": "d_t = d_t * (1 - 0.8 * A_t) when A > 0.7"
     },
     "skeptics_panel": {
-      "conservative": { "temperature": 0.1, "weight": 0.3 },
-      "balanced":     { "temperature": 0.5, "weight": 0.5 },
-      "creative":     { "temperature": 0.9, "weight": 0.2 },
+      "conservative": {
+        "temperature": 0.1,
+        "weight": 0.3
+      },
+      "balanced": {
+        "temperature": 0.5,
+        "weight": 0.5
+      },
+      "creative": {
+        "temperature": 0.9,
+        "weight": 0.2
+      },
       "fusion": "d_final = 0.5*d_balanced + 0.3*d_conservative + 0.2*d_creative"
     },
     "transcendence_loop": {
@@ -153,5 +282,12 @@
       "learning_rate": 0.001,
       "formula": "w_{t+N} = w_t + eta * grad_w(1/9 * sum g_m(d))"
     }
-  }
+  },
+  "schema_note": "Canonical source of truth for all 9 Guardian Laws. Severity field governs denial logic in both arbitrage/guardian.py (adrion-369) and core/decision_space_162d.py (adrion-369-architecture). weight_map: CRITICAL=10, HIGH=2, MEDIUM=1. Deny if sum >= deny_weighted_threshold. G7 and G8 are CRITICAL — any single violation triggers instant DENY.",
+  "weight_map": {
+    "CRITICAL": 10,
+    "HIGH": 2,
+    "MEDIUM": 1
+  },
+  "deny_weighted_threshold": 4
 }

@@ -6,6 +6,32 @@
 
 ---
 
+## [5.7.2] — 2026-05-06 — Canonical sync v2.0, CI/CD, datetime fix
+
+### Dodane
+- **`.github/workflows/ci.yml`** — pierwszy workflow CI dla architecture repo:
+  - Matrix Python 3.11 + 3.12
+  - `pytest --cov=core --cov-fail-under=90`
+  - Ruff lint + mypy type check
+  - Dedykowany job `canonical-sync` weryfikujący schemat `GUARDIAN_LAWS_CANONICAL.json` przy każdym push/PR
+
+### Zmienione
+- **`GUARDIAN_LAWS_CANONICAL.json` → v2.0** — zsynchronizowany z `adrion-369` repo:
+  - Dodano pole `severity` do wszystkich 9 praw (CRITICAL/HIGH/MEDIUM)
+  - Dodano `weight_map: {CRITICAL:10, HIGH:2, MEDIUM:1}` i `deny_weighted_threshold: 4`
+  - G7 Privacy: `priority` zmienione z `standard` → `hard_veto`, `threshold` 0.87 → 0.95 (spójne z G8)
+  - G7 i G8 mają teraz `severity: CRITICAL` — jeden canonical jako jedyne źródło prawdy dla obu repo
+
+### Naprawione
+- **`core/audit_trail.py` line 140** — `datetime.utcfromtimestamp()` → `datetime.fromtimestamp(ts, datetime.timezone.utc)` (DeprecationWarning usunięty)
+- **`core/escalation.py` line 105** — identyczna naprawa `utcfromtimestamp`
+
+### Metryki
+- **0 krytycznych luk** | **243 testów** | **0 DeprecationWarnings** | **CI: ✅**
+
+
+---
+
 ## [5.7.0] — 2026-04-13 — D^162 Formalization + Steganography + Superior Moral Code
 
 ### Nowe pliki
