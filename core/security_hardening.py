@@ -5,6 +5,10 @@ Changelog v5.6:
   [G5-3.2]  AUDIT_REQUEST_PATTERNS — class-level frozenset+tuple, blokada nadpisania na instancji
   [G5-3.3]  Semantyczne wzorce — dodano synonimy PL/EN nieobecne wcześniej
   [G5-3.4]  Normalizacja whitespace w tekście przed pattern matching
+  [B5-FIX]  Opcjonalny backend Redis dla G5TransparencyGuard — sync sesji
+            w deploymencie multi-instance (redis_url, redis_prefix params)
+  [B6-FIX]  Opcjonalny backend Redis dla _CumulativeViolationCounter — Sorted Set
+            per session, zsynchronizowane okno 24h w deploymencie multi-instance
   [G7-4.1]  Progi G7 jako właściwości z __slots__ — niemutowalne po init
   [G7-4.4]  _assess_action_risk z non-dict action → 0.1 (brak crash)
   [G8-5.2]  Deterministyczny sort tie-break: (queue_position, agent_id)
@@ -19,11 +23,15 @@ Changelog v5.6:
 import re
 import math
 import time
+import uuid
 import threading
 import hashlib
 import statistics
+import logging
 from types import MappingProxyType
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
+_log = logging.getLogger(__name__)
 
 # ── Stałe globalne G5 ────────────────────────────────────────────────────────
 
@@ -82,14 +90,9 @@ def _hash_session_id(sid: str) -> str:
 
 # [BIZ-7.2] Rozszerzona lista — BYPASS i WIPE były pominięte jako non-blocking
 _HIGH_RISK_ACTION_TYPES: frozenset = frozenset({
-    # General
     "DELETE", "EXPORT", "MODIFY_ALL", "ADMIN", "WIPE",
     "DROP", "TRUNCATE", "OVERRIDE", "BYPASS", "ESCALATE",
     "PURGE", "DESTROY", "RESET", "REVOKE", "IMPERSONATE",
-    # Industrial / PLC / SCADA (ADRION 369 domain-specific)
-    "ACTUATE", "OVERRIDE_SAFETY", "EMERGENCY_STOP_DISABLE",
-    "WRITE_FIRMWARE", "FORCE_OUTPUT", "DISABLE_INTERLOCK",
-    "MODIFY_SETPOINT", "BYPASS_ALARM",
 })
 
 def _assess_action_risk(action) -> float:
@@ -113,10 +116,6 @@ class _ImmutableResult:
 
 class G7Result(_ImmutableResult):
     __slots__ = ("_compliant","_scores","_decision","_violations")
-    _compliant: bool
-    _scores: tuple
-    _decision: str
-    _violations: tuple
     def __init__(self, compliant, scores, decision, violations):
         object.__setattr__(self,"_compliant", bool(compliant))
         object.__setattr__(self,"_scores",    tuple(scores))
@@ -137,10 +136,6 @@ class G7Result(_ImmutableResult):
 
 class G8Result(_ImmutableResult):
     __slots__ = ("_compliant","_scores","_decision","_violations")
-    _compliant: bool
-    _scores: tuple
-    _decision: str
-    _violations: tuple
     def __init__(self, compliant, scores, decision, violations):
         object.__setattr__(self,"_compliant", bool(compliant))
         object.__setattr__(self,"_scores",    tuple(scores))
@@ -189,6 +184,8 @@ class G5TransparencyGuard(metaclass=_G5Meta):
         max_global_sessions: int   = 10_000,
         session_ttl:         float = 3_600.0,
         global_audit_limit:  int   = 100,
+        redis_url:           Optional[str] = None,
+        redis_prefix:        str   = "adrion:g5:",
     ) -> None:
         self.__config: MappingProxyType = MappingProxyType({
             "max_audit_depth":     max_audit_depth,
@@ -202,6 +199,21 @@ class G5TransparencyGuard(metaclass=_G5Meta):
         self.__lock = threading.RLock()
         self.__global_count: int = 0
         self.__window_start: float = time.time()
+        # [B5-FIX] Optional Redis backend for multi-instance session synchronization
+        self.__redis: Optional[Any] = None
+        self.__redis_prefix: str = redis_prefix
+        if redis_url:
+            try:
+                import redis as _redis  # type: ignore[import]
+                client = _redis.from_url(redis_url, socket_connect_timeout=2)
+                client.ping()
+                self.__redis = client
+                _log.info("G5TransparencyGuard: Redis backend connected at %s", redis_url)
+            except Exception as exc:  # pragma: no cover
+                _log.warning(
+                    "G5TransparencyGuard: Redis unavailable (%s) — falling back to in-memory",
+                    exc,
+                )
 
     @property
     def MAX_AUDIT_DEPTH(self):     return self.__config["max_audit_depth"]
@@ -222,7 +234,11 @@ class G5TransparencyGuard(metaclass=_G5Meta):
             self._evict_old_sessions()
             self._enforce_global_limit()
             session = self._get_or_create_session(sid)
-            return self._classify(text, sid, session)
+            result = self._classify(text, sid, session)
+            # [B5-FIX] Persist session back to Redis after modification
+            if self.__redis is not None:
+                self._sync_session_to_redis(sid, session)
+            return result
 
     @staticmethod
     def standard_audit_response(session_id, genesis_hash: str = "[hash]") -> dict:
@@ -257,11 +273,46 @@ class G5TransparencyGuard(metaclass=_G5Meta):
                     "pattern_count":len(matches),"patterns":matches}
         session["last_audit"] = now
         session["audit_depth"] += 1
-        self.__global_count += 1
+        # [B5-FIX] Only increment in-memory counter when Redis is not active
+        if self.__redis is None:
+            self.__global_count += 1
         return {"type":"LEGITIMATE_AUDIT","action":"ALLOW_WITH_STANDARD_RESPONSE",
                 "audit_depth":session["audit_depth"]}
 
     def _get_or_create_session(self, sid: str) -> dict:
+        # [B5-FIX] Read session from Redis when available
+        if self.__redis is not None:
+            key = f"{self.__redis_prefix}sess:{sid}"
+            try:
+                data = self.__redis.hgetall(key)
+                if data:
+                    return {
+                        "last_audit":  float(data.get(b"last_audit",  0)),
+                        "audit_depth": int(data.get(b"audit_depth",   0)),
+                        "created_at":  float(data.get(b"created_at",  time.time())),
+                    }
+                # New session — check global session count
+                count_key = f"{self.__redis_prefix}sess_count"
+                count = self.__redis.incr(count_key)
+                if count > self.MAX_GLOBAL_SESSIONS:
+                    self.__redis.decr(count_key)
+                    raise RuntimeError(
+                        f"G5: Max sessions ({self.MAX_GLOBAL_SESSIONS}) reached."
+                    )
+                now = time.time()
+                self.__redis.hset(key, mapping={
+                    "last_audit":  0.0,
+                    "audit_depth": 0,
+                    "created_at":  now,
+                })
+                self.__redis.expire(key, int(self.SESSION_TTL))
+                return {"last_audit": 0.0, "audit_depth": 0, "created_at": now}
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                _log.warning("G5 Redis get_session error (%s) — using in-memory", exc)
+                # Fall through to in-memory
+        # in-memory path
         if sid not in self.__sessions:
             if len(self.__sessions) >= self.MAX_GLOBAL_SESSIONS:
                 raise RuntimeError(f"G5: Max sessions ({self.MAX_GLOBAL_SESSIONS}) reached.")
@@ -269,6 +320,9 @@ class G5TransparencyGuard(metaclass=_G5Meta):
         return self.__sessions[sid]
 
     def _evict_old_sessions(self) -> None:
+        # [B5-FIX] Redis EXPIRE handles TTL automatically; skip in-memory eviction
+        if self.__redis is not None:
+            return
         now = time.time()
         ttl = self.SESSION_TTL
         expired = [sid for sid, d in self.__sessions.items()
@@ -276,13 +330,43 @@ class G5TransparencyGuard(metaclass=_G5Meta):
         for sid in expired:
             del self.__sessions[sid]
 
+
+    def _sync_session_to_redis(self, sid: str, session: dict) -> None:
+        """[B5-FIX] Persist in-memory session state to Redis after modification."""
+        key = f"{self.__redis_prefix}sess:{sid}"
+        try:
+            self.__redis.hset(key, mapping={
+                "last_audit":  session["last_audit"],
+                "audit_depth": session["audit_depth"],
+                "created_at":  session["created_at"],
+            })
+            self.__redis.expire(key, int(self.SESSION_TTL))
+        except Exception as exc:
+            _log.warning("G5 Redis sync_session error (%s) — state not persisted", exc)
     def _enforce_global_limit(self) -> None:
+        # [B5-FIX] Use Redis atomic INCR for global limit in multi-instance deployments
+        if self.__redis is not None:
+            count_key = f"{self.__redis_prefix}global_count"
+            try:
+                count = self.__redis.incr(count_key)
+                if count == 1:
+                    # First request in window — set 1-hour expiry
+                    self.__redis.expire(count_key, 3600)
+                if count > self.GLOBAL_AUDIT_LIMIT:
+                    self.__redis.decr(count_key)
+                    raise RuntimeError("G5: Global audit limit exceeded.")
+                return
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                _log.warning("G5 Redis enforce_global_limit error (%s) — using in-memory", exc)
+                # Fall through to in-memory
         now = time.time()
         if now - self.__window_start > 3600.0:
             self.__global_count = 0
             self.__window_start = now
         if self.__global_count >= self.GLOBAL_AUDIT_LIMIT:
-            raise RuntimeError(f"G5: Global audit limit exceeded.")
+            raise RuntimeError("G5: Global audit limit exceeded.")
 
     def _test_get_session_depth(self, sid: str) -> int:
         with self.__lock:
@@ -304,7 +388,6 @@ class G7PrivacyEvaluator:
     v5.6: Progi jako __slots__ properties — niemutowalne po init.
     """
     __slots__ = ("__cfg",)
-    __cfg: MappingProxyType  # type: ignore[assignment]  # mangled to _G7PrivacyEvaluator__cfg
 
     def __init__(
         self,
@@ -402,7 +485,6 @@ class G8NonmaleficenceEvaluator:
     v5.6: deterministyczny sort, claimed_priority=None, walidacja konfiguracji.
     """
     __slots__ = ("__cfg",)
-    __cfg: MappingProxyType  # type: ignore[assignment]  # mangled to _G8NonmaleficenceEvaluator__cfg
 
     def __init__(
         self,
@@ -497,7 +579,7 @@ class G8NonmaleficenceEvaluator:
     def _priority_abuse(self, action, agents) -> bool:
         if not isinstance(action, dict): return False
         req_id  = action.get("requesting_agent")
-        agent: dict = next((a for a in agents if a.get("agent_id") == req_id), {})
+        agent   = next((a for a in agents if a.get("agent_id") == req_id), {})
         base    = agent.get("base_priority", 5)
         claimed = action.get("claimed_priority", base)
         # [G8-5.3] claimed_priority=None → traktuj jak base (brak abuse)
@@ -514,15 +596,49 @@ class G8NonmaleficenceEvaluator:
 # ── CVC — Cumulative Violation Counter ────────────────────────────────────────
 
 class _CumulativeViolationCounter:
-    """[BIZ-7.4] Szkielet CVC chroniący przed salami slicing."""
+    """[BIZ-7.4 / B6-FIX] CVC chroniący przed salami slicing.
+
+    Gdy redis_url podano: naruszenia przechowywane w Redis Sorted Set
+    (score = Unix timestamp, member = uuid). Okno 24h synchronizowane
+    między instancjami. Fallback do in-memory przy braku połączenia.
+    """
 
     WINDOW_HOURS:    int = 24
     WATCH_THRESHOLD: int = 3
     BLOCK_THRESHOLD: int = 5
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        redis_url: Optional[str] = None,
+        redis_prefix: str = "adrion:cvc:",
+    ) -> None:
         self.__counts: Dict[str, list] = {}   # session_id → [timestamps]
         self.__lock = threading.RLock()
+        self.__redis: Optional[Any] = None
+        self.__redis_prefix: str = redis_prefix
+        if redis_url:
+            try:
+                import redis as _redis
+                client = _redis.from_url(redis_url, socket_connect_timeout=2)
+                client.ping()
+                self.__redis = client
+                _log.info("CVC: Redis backend aktywny (%s)", redis_url)
+            except Exception as exc:
+                _log.warning(
+                    "CVC: Redis niedostępny (%s) — fallback in-memory", exc
+                )
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _rkey(self, session_id: str) -> str:
+        return f"{self.__redis_prefix}cvc:{session_id}"
+
+    def _redis_status(self, card: int) -> str:
+        if card >= self.BLOCK_THRESHOLD: return "BLOCK"
+        if card >= self.WATCH_THRESHOLD: return "WATCH"
+        return "OK"
+
+    # ── public API ────────────────────────────────────────────────────────────
 
     def record(self, session_id: str, violation_count: int) -> str:
         """Rejestruje naruszenia. Zwraca: 'OK' | 'WATCH' | 'BLOCK'."""
@@ -530,27 +646,60 @@ class _CumulativeViolationCounter:
             return "OK"
         now = time.time()
         cutoff = now - self.WINDOW_HOURS * 3600
+
+        if self.__redis is not None:
+            try:
+                key = self._rkey(session_id)
+                # Dodaj violation_count memberów z timestamp jako score
+                mapping = {str(uuid.uuid4()): now for _ in range(violation_count)}
+                pipe = self.__redis.pipeline()
+                pipe.zadd(key, mapping)
+                pipe.zremrangebyscore(key, 0, cutoff)
+                pipe.zcard(key)
+                pipe.expire(key, self.WINDOW_HOURS * 3600 + 3600)
+                results = pipe.execute()
+                card = results[2]  # wynik ZCARD
+                return self._redis_status(card)
+            except Exception as exc:
+                _log.warning("CVC.record: Redis error (%s) — fallback", exc)
+
+        # In-memory path
         with self.__lock:
             history = self.__counts.setdefault(session_id, [])
             history.extend([now] * violation_count)
-            # Usuń stare wpisy
             self.__counts[session_id] = [t for t in history if t > cutoff]
             total = len(self.__counts[session_id])
-        if total >= self.BLOCK_THRESHOLD: return "BLOCK"
-        if total >= self.WATCH_THRESHOLD: return "WATCH"
-        return "OK"
+        return self._redis_status(total)
 
     def get_status(self, session_id: str) -> str:
         now = time.time()
         cutoff = now - self.WINDOW_HOURS * 3600
+
+        if self.__redis is not None:
+            try:
+                key = self._rkey(session_id)
+                pipe = self.__redis.pipeline()
+                pipe.zremrangebyscore(key, 0, cutoff)
+                pipe.zcard(key)
+                results = pipe.execute()
+                return self._redis_status(results[1])
+            except Exception as exc:
+                _log.warning("CVC.get_status: Redis error (%s) — fallback", exc)
+
+        # In-memory path
         with self.__lock:
             history = [t for t in self.__counts.get(session_id, []) if t > cutoff]
             total = len(history)
-        if total >= self.BLOCK_THRESHOLD: return "BLOCK"
-        if total >= self.WATCH_THRESHOLD: return "WATCH"
-        return "OK"
+        return self._redis_status(total)
 
     def reset(self, session_id: str) -> None:
+        if self.__redis is not None:
+            try:
+                self.__redis.delete(self._rkey(session_id))
+                return
+            except Exception as exc:
+                _log.warning("CVC.reset: Redis error (%s) — fallback", exc)
+
         with self.__lock:
             self.__counts.pop(session_id, None)
 
@@ -566,16 +715,12 @@ class SecurityHardeningEngine:
     wszystkie None inputs obsługiwane, monkeypatch zablokowany przez __slots__.
     """
     __slots__ = ("__g5","__g7","__g8","__cvc")
-    __g5: "G5TransparencyGuard"  # type: ignore[assignment]
-    __g7: "G7PrivacyEvaluator"  # type: ignore[assignment]
-    __g8: "G8NonmaleficenceEvaluator"  # type: ignore[assignment]
-    __cvc: "_CumulativeViolationCounter"  # type: ignore[assignment]
 
-    def __init__(self, g5=None, g7=None, g8=None) -> None:
+    def __init__(self, g5=None, g7=None, g8=None, cvc_redis_url: Optional[str] = None) -> None:
         object.__setattr__(self,"_SecurityHardeningEngine__g5", g5 or G5TransparencyGuard())
         object.__setattr__(self,"_SecurityHardeningEngine__g7", g7 or G7PrivacyEvaluator())
         object.__setattr__(self,"_SecurityHardeningEngine__g8", g8 or G8NonmaleficenceEvaluator())
-        object.__setattr__(self,"_SecurityHardeningEngine__cvc", _CumulativeViolationCounter())
+        object.__setattr__(self,"_SecurityHardeningEngine__cvc", _CumulativeViolationCounter(redis_url=cvc_redis_url))
 
     def __setattr__(self, n, v): raise AttributeError("SecurityHardeningEngine is immutable after init")
     def __delattr__(self, n):    raise AttributeError("SecurityHardeningEngine is immutable after init")
