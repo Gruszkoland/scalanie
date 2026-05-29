@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from compression import CompressionStyleGuide
 from guardians import EnneadCouncil
@@ -21,6 +21,7 @@ class AdrionResult:
     entropy_level: float
     compressed_report: str
     recommendation: str
+    guardian_weighted_score: float
 
 
 class AdrionCore:
@@ -36,11 +37,27 @@ class AdrionCore:
         self.unity = UnityField()
         self.shadow = ShadowProtocol()
 
+    @staticmethod
+    def _ensure_tuple3(values: Any, fallback: tuple[float, float, float]) -> tuple[float, float, float]:
+        try:
+            parsed = tuple(float(v) for v in values)
+        except TypeError:
+            return fallback
+        return parsed if len(parsed) == 3 else fallback
+
     def process_decision(self, payload: Dict[str, Any], *, source: str = "adrion_core") -> AdrionResult:
+        # All decisions enter through AdrionCore and are pre-checked by ZeroRouter.
         safe_payload = self.shadow.redact(payload)
-        axis = payload.get("axis", (0.0, 1.0, 0.0))
+        axis = self._ensure_tuple3(payload.get("axis", (0.0, 1.0, 0.0)), (0.0, 1.0, 0.0))
         angle_rad = float(payload.get("angle_rad", 0.05))
         blend = float(payload.get("blend", 0.7))
+
+        incoming = {
+            "resonance_score": float(payload.get("resonance_score", 0.9)),
+            "entropy_level": float(payload.get("entropy_level", 0.1)),
+            "trinity_vector": self._ensure_tuple3(payload.get("trinity_vector", (0.9, 0.9, 0.9)), (0.9, 0.9, 0.9)),
+        }
+        pre_zero = self.zero_router.route(incoming, auto_force_to_zero=False)
 
         vortex_snapshot = self.vortex.rotate(axis=axis, angle_rad=angle_rad, blend=blend)
 
@@ -56,8 +73,8 @@ class AdrionCore:
 
         merged = self.unity.merge(
             zero={
-                "resonance_score": float(routed_payload.get("resonance_score", 0.0)),
-                "entropy_level": float(routed_payload.get("entropy_level", 1.0)),
+                "resonance_score": float(pre_zero.payload.get("resonance_score", routed_payload.get("resonance_score", 0.0))),
+                "entropy_level": float(pre_zero.payload.get("entropy_level", routed_payload.get("entropy_level", 1.0))),
             },
             observer={
                 "resonance_score": report.resonance_score,
@@ -85,26 +102,43 @@ class AdrionCore:
         council_result = self.ennead.evaluate_decision(decision_context)
         decision = str(council_result["decision"])
         approved = decision == "PROCEED"
+        weighted_score_raw = council_result.get("weighted_score", 0.0)
+        weighted_score = float(cast(float, weighted_score_raw))
+
+        post_zero = self.zero_router.route(
+            {
+                "resonance_score": merged["resonance_score"],
+                "entropy_level": merged["entropy_level"],
+                "trinity_vector": vortex_snapshot.trinity_vector,
+            },
+            auto_force_to_zero=not approved,
+        )
+        final_resonance = float(post_zero.payload.get("resonance_score", merged["resonance_score"]))
+        final_entropy = float(post_zero.payload.get("entropy_level", merged["entropy_level"]))
+        final_approved = approved and post_zero.approval.approved
 
         compressed_report = self.style.hybrid(
             {
-                "resonance_score": round(merged["resonance_score"], 4),
-                "entropy_level": round(merged["entropy_level"], 4),
+                "resonance_score": round(final_resonance, 4),
+                "entropy_level": round(final_entropy, 4),
                 "decision": decision,
-                "approved": approved,
+                "approved": final_approved,
+                "observer_summary": report.summary_symbolic,
+                "guardian_weighted": round(weighted_score, 4),
             }
         )
 
         recommendation = "Proceed"
-        if not approved:
+        if not final_approved:
             recommendation = "Escalate to Zero"
             self.zero_router.force_to_zero(reason="ENNEAD_DENY")
 
         return AdrionResult(
             decision=decision,
-            approved=approved,
-            resonance_score=merged["resonance_score"],
-            entropy_level=merged["entropy_level"],
+            approved=final_approved,
+            resonance_score=final_resonance,
+            entropy_level=final_entropy,
             compressed_report=compressed_report,
             recommendation=recommendation,
+            guardian_weighted_score=weighted_score,
         )

@@ -26,6 +26,7 @@ class GuardianVerdict:
     passed: bool
     reason: str
     recommendation: str
+    responsibility: str
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class BaseGuardian:
     name: str
     threshold: float = 0.8
     weight: float = 1.0
+    responsibility: str = "general"
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         raise NotImplementedError
@@ -40,103 +42,211 @@ class BaseGuardian:
 
 class GuardianOfUnity(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Unity", threshold=0.8, weight=1.15)
+        super().__init__(
+            name="Unity",
+            threshold=0.8,
+            weight=1.15,
+            responsibility="global coherence",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         score = float(decision.get("resonance_score", 0.0))
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Koherencja systemu", "Synchronize" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Koherencja systemu",
+            "Synchronize" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfHarmony(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Harmony", threshold=0.78, weight=1.1)
+        super().__init__(
+            name="Harmony",
+            threshold=0.78,
+            weight=1.1,
+            responsibility="trinity balance",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         trinity = tuple(float(x) for x in decision.get("trinity_vector", (0.0, 0.0, 0.0)))
         spread = max(trinity) - min(trinity) if trinity else 1.0
         score = max(0.0, min(1.0, 1.0 - spread))
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Balans Trinity", "Rebalance Trinity" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Balans Trinity",
+            "Rebalance Trinity" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfRhythm(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Rhythm", threshold=0.75, weight=1.0)
+        super().__init__(
+            name="Rhythm",
+            threshold=0.75,
+            weight=1.0,
+            responsibility="cycle cadence",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         pulse = int(decision.get("pulse_count", 0))
         aligned = pulse % 3 == 0 or pulse % 9 == 0
         score = 0.9 if aligned else 0.72
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Kadencja cyklu", "Adjust cadence" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Kadencja cyklu",
+            "Adjust cadence" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfCausality(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Causality", threshold=0.8, weight=1.1)
+        super().__init__(
+            name="Causality",
+            threshold=0.8,
+            weight=1.1,
+            responsibility="traceability",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         has_source = bool(decision.get("source", ""))
         has_payload = bool(decision.get("payload", {}))
         score = 1.0 if has_source and has_payload else 0.6
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Traceability", "Add source+payload" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Traceability",
+            "Add source+payload" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfTransparency(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Transparency", threshold=0.75, weight=1.0)
+        super().__init__(
+            name="Transparency",
+            threshold=0.75,
+            weight=1.0,
+            responsibility="audit visibility",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         report = str(decision.get("observer_summary", ""))
         score = 0.92 if report else 0.65
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Observer report", "Provide symbolic report" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Observer report",
+            "Provide symbolic report" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfAuthenticity(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Authenticity", threshold=0.75, weight=1.0)
+        super().__init__(
+            name="Authenticity",
+            threshold=0.75,
+            weight=1.0,
+            responsibility="signal integrity",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         entropy = float(decision.get("entropy_level", 1.0))
         score = max(0.0, min(1.0, 1.0 - entropy))
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Signal integrity", "Reduce entropy" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Signal integrity",
+            "Reduce entropy" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfPrivacy(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Privacy", threshold=0.9, weight=1.25)
+        super().__init__(
+            name="Privacy",
+            threshold=0.9,
+            weight=1.25,
+            responsibility="data leakage prevention",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         has_secret = bool(decision.get("has_secret", False))
         score = 0.95 if not has_secret else 0.2
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Sensitive fields exposure", "Redact payload" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Sensitive fields exposure",
+            "Redact payload" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfNonmaleficence(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Nonmaleficence", threshold=0.9, weight=1.3)
+        super().__init__(
+            name="Nonmaleficence",
+            threshold=0.9,
+            weight=1.3,
+            responsibility="operational safety",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         risk = float(decision.get("risk_score", 0.0))
         score = max(0.0, min(1.0, 1.0 - risk))
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Operational safety", "Escalate to Zero" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Operational safety",
+            "Escalate to Zero" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class GuardianOfSustainability(BaseGuardian):
     def __init__(self) -> None:
-        super().__init__(name="Sustainability", threshold=0.75, weight=1.0)
+        super().__init__(
+            name="Sustainability",
+            threshold=0.75,
+            weight=1.0,
+            responsibility="resource sustainability",
+        )
 
     def evaluate(self, decision: Dict[str, Any]) -> GuardianVerdict:
         load = float(decision.get("load_factor", 0.2))
         score = max(0.0, min(1.0, 1.0 - load))
         passed = score >= self.threshold
-        return GuardianVerdict(self.name, score, passed, "Resource pressure", "Reduce load" if not passed else "Proceed")
+        return GuardianVerdict(
+            self.name,
+            score,
+            passed,
+            "Resource pressure",
+            "Reduce load" if not passed else "Proceed",
+            self.responsibility,
+        )
 
 
 class EnneadCouncil:
@@ -168,6 +278,7 @@ class EnneadCouncil:
                     passed=score >= self.threshold,
                     reason="Score map evaluation",
                     recommendation="Proceed" if score >= self.threshold else "Escalate",
+                    responsibility="compatibility",
                 )
             )
 
@@ -185,11 +296,17 @@ class EnneadCouncil:
         decision = "DENY" if critical_violation or len(violations) >= 2 else "PROCEED"
         weighted_numerator = 0.0
         weighted_denominator = 0.0
+        hard_block = False
         for verdict in verdicts:
             weight = next((g.weight for g in self.guardians if g.name == verdict.guardian), 1.0)
             weighted_numerator += verdict.score * weight
             weighted_denominator += weight
+            if verdict.guardian in CRITICAL_GUARDIANS and verdict.score < 0.85:
+                hard_block = True
         weighted_score = (weighted_numerator / weighted_denominator) if weighted_denominator else 0.0
+
+        if hard_block or weighted_score < self.threshold:
+            decision = "DENY"
 
         return {
             "decision": decision,
@@ -197,6 +314,7 @@ class EnneadCouncil:
             "critical_veto": critical_violation,
             "verdicts": verdicts,
             "weighted_score": weighted_score,
+            "hard_block": hard_block,
         }
 
     @staticmethod

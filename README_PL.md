@@ -1,8 +1,8 @@
 # ADRION 369 — System Orkiestracji Roju AI
 ### *„Jeśli znałbyś wspaniałość liczb 3, 6 i 9, miałbyś klucz do wszechświata."* — Nikola Tesla
 
-**Wersja:** 5.7.1 (Industrial Security Grade)  
-**Status:** 0 Krytycznych Podatności | 243 Testy Zaliczone  
+**Wersja:** 5.7.1 (Industrial Security Grade)
+**Status:** 0 Krytycznych Podatności | 243 Testy Zaliczone
 **Język:** [🇬🇧 English](README.md)
 
 ---
@@ -37,6 +37,31 @@ Iloczyn tensorowy **D^162 = P^3 ⊗ H^6 ⊗ G^9** mapuje każdą decyzję do pun
 ---
 
 ## ⚙️ Stos Technologiczny
+
+## 🔧 Scalanie Całości v1 — co zostało dodane
+
+W tej iteracji repozytorium otrzymało production-ready warstwę toroidalną, zintegrowaną jako non-breaking extension:
+
+- Centralny orchestrator: `core/system/adrion_core.py`
+- Punkt Zero z telemetrią i force-to-zero: `core/zero/zero_router.py`
+- VortexEngine ze ścieżką Quaternion + SLERP: `core/vortex/engine.py`, `core/math/slerp.py`
+- MetaObserver z kompresją raportów i dwustopniową interwencją: `core/observer/meta_observer.py`
+- Ennead Council z 9 ważonymi Strażnikami i hard-block dla domen krytycznych: `guardians/ennead.py`
+- Przykład pełnego przepływu decyzji: `example_usage.py`
+
+### Przepływ decyzji v1
+
+```text
+Input -> AdrionCore -> ZeroRouter(pre-check) -> VortexEngine(SLERP)
+    -> MetaObserver(compressed report) -> EnneadCouncil(weighted decision)
+    -> ZeroRouter(post-check) -> Output
+```
+
+### Szybkie uruchomienie przykładu
+
+```bash
+python example_usage.py
+```
 
 ### Moduły Rdzenia (`core/`)
 | Moduł | Funkcja |
@@ -121,6 +146,6 @@ python scripts/push_to_github.py
 
 ---
 
-*ADRION 369 — System Orkiestracji Roju AI*  
-*Bezpieczny z Projektu. Transparentny Domyślnie.*  
+*ADRION 369 — System Orkiestracji Roju AI*
+*Bezpieczny z Projektu. Transparentny Domyślnie.*
 *https://github.com/Gruszkoland/adrion-369-architecture*
