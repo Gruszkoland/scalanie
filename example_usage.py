@@ -11,6 +11,8 @@ def print_result(label: str, result: AdrionResult) -> None:
     print(f"entropy_level: {result.entropy_level:.4f}")
     print(f"guardian_weighted_score: {result.guardian_weighted_score:.4f}")
     print(f"recommendation: {result.recommendation}")
+    print(f"zero_symbolic_report: {result.zero_symbolic_report}")
+    print(f"ennead_symbolic_report: {result.ennead_symbolic_report}")
     print(f"compressed_report: {result.compressed_report}")
     print()
 

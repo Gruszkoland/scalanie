@@ -70,6 +70,39 @@ core/shadow_protocol.py
 - `redact()` maskuje pola wrażliwe (`token`, `secret`).
 - `resilience_hint()` klasyfikuje poziom stabilności.
 
+## Jak to wszystko działa razem
+
+Toroidalny rdzeń jest uruchamiany przez `AdrionCore`, który stanowi jedyny punkt wejścia dla decyzji aplikacyjnych oraz adapterów integracyjnych.
+
+1. Input trafia do `AdrionCore.process_decision()`.
+2. `ZeroRouter` wykonuje pre-check (bez twardego resetu).
+3. `VortexEngine` wykonuje rotację stanu Quaternion+SLERP.
+4. `MetaObserver` ocenia koherencję i przygotowuje skompresowany raport.
+5. `EnneadCouncil` uruchamia 9 Strażników z wagami i polityką hard-block.
+6. `ZeroRouter` wykonuje post-check (z opcją force-to-zero przy DENY).
+7. Wynik wraca jako `AdrionResult` z raportem symbolicznym Zero + Ennead oraz raportem hybrydowym.
+
+### Diagram przepływu
+
+```mermaid
+flowchart TD
+  A[Input] --> B[AdrionCore]
+  B --> C[ZeroRouter pre-check]
+  C --> D[VortexEngine Quaternion + SLERP]
+  D --> E[MetaObserver]
+  E --> F[EnneadCouncil 9 Guardians]
+  F --> G[ZeroRouter post-check]
+  G --> H[AdrionResult]
+
+  H --> I[Zero symbolic report]
+  H --> J[Ennead symbolic report]
+  H --> K[Hybrid compressed report]
+
+  L[integration_layer/mcp_adapter] --> B
+  M[integration_layer/arbitrage_adapter] --> B
+  N[integration_layer/kubernetes_adapter] --> B
+```
+
 ## Walidacja
 Dodane testy pokrywają:
 - routing Punktu Zero,

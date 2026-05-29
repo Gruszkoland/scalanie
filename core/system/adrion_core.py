@@ -19,6 +19,8 @@ class AdrionResult:
     approved: bool
     resonance_score: float
     entropy_level: float
+    zero_symbolic_report: str
+    ennead_symbolic_report: str
     compressed_report: str
     recommendation: str
     guardian_weighted_score: float
@@ -104,6 +106,7 @@ class AdrionCore:
         approved = decision == "PROCEED"
         weighted_score_raw = council_result.get("weighted_score", 0.0)
         weighted_score = float(cast(float, weighted_score_raw))
+        hard_block = bool(cast(bool, council_result.get("hard_block", False)))
 
         post_zero = self.zero_router.route(
             {
@@ -117,6 +120,24 @@ class AdrionCore:
         final_entropy = float(post_zero.payload.get("entropy_level", merged["entropy_level"]))
         final_approved = approved and post_zero.approval.approved
 
+        zero_symbolic_report = self.style.symbolic(
+            {
+                "resonance_score": round(final_resonance, 4),
+                "entropy_level": round(final_entropy, 4),
+                "approved": final_approved,
+                "decision": "ZERO_APPROVED" if post_zero.approval.approved else "ZERO_BLOCKED",
+            }
+        )
+        ennead_symbolic_report = self.style.symbolic(
+            {
+                "decision": decision,
+                "approved": approved,
+                "guardian_weighted": round(weighted_score, 4),
+                "critical_veto": bool(cast(bool, council_result.get("critical_veto", False))),
+                "hard_block": hard_block,
+            }
+        )
+
         compressed_report = self.style.hybrid(
             {
                 "resonance_score": round(final_resonance, 4),
@@ -125,6 +146,8 @@ class AdrionCore:
                 "approved": final_approved,
                 "observer_summary": report.summary_symbolic,
                 "guardian_weighted": round(weighted_score, 4),
+                "zero_report": zero_symbolic_report,
+                "ennead_report": ennead_symbolic_report,
             }
         )
 
@@ -138,6 +161,8 @@ class AdrionCore:
             approved=final_approved,
             resonance_score=final_resonance,
             entropy_level=final_entropy,
+            zero_symbolic_report=zero_symbolic_report,
+            ennead_symbolic_report=ennead_symbolic_report,
             compressed_report=compressed_report,
             recommendation=recommendation,
             guardian_weighted_score=weighted_score,
