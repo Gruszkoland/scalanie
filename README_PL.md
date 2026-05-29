@@ -110,6 +110,7 @@ python scripts/push_to_github.py
 ## 📚 Dokumentacja Szczegółowa
 | Plik | Opis |
 | :--- | :--- |
+| `docs/ARCHITEKTURA_SCALANIE_CALOSCI.md` | Warstwa SCALANIE_CALOSCI v1: F0-F4 + UNITY_FIELD + Protokół Cienia |
 | `docs/core/01_CORE_TRINITY.md` | System Trinity — 3 perspektywy, 4 strefy decyzyjne |
 | `docs/core/02_CORE_HEXAGON.md` | System Hexagon — 6 trybów, MAX_CYCLES→DENY |
 | `docs/core/03_CORE_GUARDIANS.md` | System Opiekunów — 9 Praw, próg VETO=2, CVC |
